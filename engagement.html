@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>PapayaFresh Admin Dashboard</title>
+    <meta content="width=device-width, initial-scale=1.0, shrink-to-fit=no" name="viewport"/>
+    <link rel="icon" href="papayafresh_assets/papayalogo_notxt.png" type="image/x-icon"/>
+    <!-- Fonts and icons -->
+    <script src="assets/js/plugin/webfont/webfont.min.js"></script>
+    <script>
+      WebFont.load({
+        google: { families: ["Public Sans:300,400,500,600,700"] },
+        custom: {
+          families: [
+            "Font Awesome 5 Solid",
+            "Font Awesome 5 Regular",
+            "Font Awesome 5 Brands",
+            "simple-line-icons",
+          ],
+          urls: ["assets/css/fonts.min.css"],
+        },
+        active: function () {
+          sessionStorage.fonts = true;
+        },
+      });
+    </script>
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="assets/css/plugins.min.css" />
+    <link rel="stylesheet" href="assets/css/kaiadmin.min.css" />
+    <link rel="stylesheet" href="assets/css/demo.css" />
+    <script src="https://kit.fontawesome.com/e5fae76a42.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div class="wrapper">
+      <!--Sidebar-->
+      <div id="sidebar-container"></div>
+      <script>
+        fetch("sidebar.html")
+          .then(response => response.text())
+          .then(data => {
+            document.getElementById("sidebar-container").innerHTML = data;
+          });
+      </script>
+      <!--Sidebar-->
+      <div class="main-panel">
+        <!--Navbar-->
+        <div id = "navbar-container"></div>
+        <script>
+          fetch("navbar.html")
+            .then(response => response.text())
+            .then(data => {
+              document.getElementById("navbar-container").innerHTML = data;
+            });
+        </script>
+        <!--Navbar-->
+        <div class="container">
+          <div class="page-inner">
+            <div class="d-flex align-items-center align-items-md-center flex-column pt-2 pb-4">
+              <div>
+                <h1 style = "font-weight: 1000; font-size: 55px">Engagement</h1>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-12">
+                <div class="card card-round">
+                  <div class="card-header">
+                    <div class="card-head-row">
+                      <div class="card-title">User Engagement & Growth</div>
+                      <div class="card-tools">
+                        <a href="#" class="btn btn-label-success btn-round btn-sm me-2" >
+                          <span class="btn-label">
+                            <i class="fa fa-pencil"></i>
+                          </span>
+                          Export
+                        </a>
+                        <a href="#" class="btn btn-label-info btn-round btn-sm">
+                          <span class="btn-label">
+                            <i class="fa fa-print"></i>
+                          </span>
+                          Print
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div class="chart-container" style="min-height: 375px">
+                      <canvas id="statisticsChart"></canvas>
+                    </div>
+                    <div id="myChartLegend"></div>
+                  </div>
+                </div>
+              </div>  
+            </div>
+            <!--Users Today-->
+            <div class = "row">
+              <div class="col-md-6">
+                <div class="card card-primary card-round">
+                  <div class="card-header">
+                    <div class="card-head-row">
+                      <div class="card-title">Papaya Scan & Prediction Performance</div>
+                      <div class="card-tools">
+                        <div class="dropdown">
+                          <button
+                            class="btn btn-sm btn-label-light dropdown-toggle"
+                            type="button"
+                            id="dropdownMenuButton"
+                            data-bs-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                          >
+                            Export
+                          </button>
+                          <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <a class="dropdown-item" href="#">Generate Report</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-category">July - August</div>
+                  </div>
+                  <div class="card-body pb-0">
+                    <div class="mb-4 mt-2">
+                      <h1>This month's scans: 124</h1>
+                    </div>
+                    <div class="pull-in">
+                      <canvas id="dailySalesChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card card-round">
+                  <div class="card-body pb-0">
+                    <div class="h1 fw-bold float-end text-primary">102</div>
+                    <h2 class="mb-2">Avg. Scans per Week</h2>
+                    <p class="text-muted">Weekly scan summary for users</p>
+              
+                    <div class="chart-container" style="min-height: 255px;">
+                      <canvas id="weeklyLineChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-20 ">
+                  <div class="card card-round">
+                    <div class="card-header">
+                      <div class="card-head-row">
+                        <div class="card-title">Upload History</div>
+                        <div class="card-tools">
+                          <!-- Filter Controls -->
+                          <form class="d-flex">
+                            <input type="date" class="form-control form-control-sm me-2" id="filterDate">
+                            <select class="form-control form-control-sm me-2" id="filterUser">
+                              <option value="">All Users</option>
+                              <option value="User A">User A</option>
+                              <option value="User B">User B</option>
+                              <option value="User C">User C</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-primary">Filter</button>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                          <thead class="table-light">
+                            <tr>
+                              <th>User</th>
+                              <th>Variety</th>
+                              <th>Date Added</th>
+                              <th>Ripeness Level</th>
+                              <th>Storage Type</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>Drobert A. Palces</td>
+                              <td>Red Lady</td>
+                              <td>2025-08-21</td>
+                              <td>Ripe</td>
+                              <td>Cold Storage</td>
+                            </tr>
+                            <tr>
+                              <td>Abdul Khalil M. Mira</td>
+                              <td>Solo</td>
+                              <td>2025-08-22</td>
+                              <td>Unripe</td>
+                              <td>Open Shelf</td>
+                            </tr>
+                            <tr>
+                              <td>Kent Archie J. Corro</td>
+                              <td>Red Lady</td>
+                              <td>2025-08-23</td>
+                              <td>OverRipe</td>
+                              <td>Cold Storage</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+                            
+            </div>
+          </div>
+        </div>
+        <!--Footer-->
+        <div id = "footer-container"></div>
+          <script>
+            fetch("footer.html")
+              .then(response => response.text())
+              .then(data => {
+                document.getElementById("footer-container").innerHTML = data;
+              });
+          </script>
+        </div>
+        <!--Footer-->
+    </div>
+    <!--   Core JS Files   -->
+    <script>
+      window.onload = function() {
+  const totalScansPerWeek = [30, 25, 40, 35]; // sum of all user scans
+  const numUsers = 5; // total number of active users
+
+  // Calculate average
+  const avgScansPerWeek = totalScansPerWeek.map(total => total / numUsers);
+
+  const ctxWeekly = document.getElementById('weeklyLineChart').getContext('2d');
+  const weeklyLineChart = new Chart(ctxWeekly, {
+    type: 'line',
+    data: {
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+      datasets: [{
+        label: 'Average Scan  s',
+        data: avgScansPerWeek,
+        borderColor: '#177dff',
+        backgroundColor: 'rgba(23, 125, 255, 0.14)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1
+          },
+          title: {
+            display: true,
+            text: 'Average Scans'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Week'
+          }
+        }
+      }
+    }
+  });
+};
+      
+      
+    </script>
+    
+    
+    <script src="assets/js/core/jquery-3.7.1.min.js"></script>
+    <script src="assets/js/core/popper.min.js"></script>
+    <script src="assets/js/core/bootstrap.min.js"></script>
+
+    <!-- jQuery Scrollbar -->
+    <script src="assets/js/plugin/jquery-scrollbar/jquery.scrollbar.min.js"></script>
+
+    <!-- Chart JS -->
+    <script src="assets/js/plugin/chart.js/chart.min.js"></script>
+
+    <!-- jQuery Sparkline -->
+    <script src="assets/js/plugin/jquery.sparkline/jquery.sparkline.min.js"></script>
+
+    <!-- Chart Circle -->
+    <script src="assets/js/plugin/chart-circle/circles.min.js"></script>
+
+    <!-- Datatables -->
+    <script src="assets/js/plugin/datatables/datatables.min.js"></script>
+
+    <!-- Bootstrap Notify -->
+    <script src="assets/js/plugin/bootstrap-notify/bootstrap-notify.min.js"></script>
+
+    <!-- jQuery Vector Maps -->
+    <script src="assets/js/plugin/jsvectormap/jsvectormap.min.js"></script>
+    <script src="assets/js/plugin/jsvectormap/world.js"></script>
+
+    <!-- Sweet Alert -->
+    <script src="assets/js/plugin/sweetalert/sweetalert.min.js"></script>
+
+    <!-- Kaiadmin JS -->
+    <script src="assets/js/kaiadmin.min.js"></script>
+
+    <!-- Kaiadmin DEMO methods, don't include it in your project! -->
+    <script src="setting-demo.js"></script>
+    <script src="demo.js"></script>
+  </body>
+</html>
