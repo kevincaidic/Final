@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
@@ -8,17 +9,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase
-const serviceAccount = require('./serviceAccountKey.json');
+// ✅ Initialize Firebase using ENV (Render Safe)
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://papayafresh-db1.firebaseio.com"
+  credential: admin.credential.cert({
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  }),
+  databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
 const db = admin.firestore();
 const auth = admin.auth();
 
-// ✅ ROOT ROUTE - ADD THIS!
+// ROOT ROUTE
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Papayafresh API is working!',
@@ -27,7 +31,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// ✅ HEALTH CHECK
+// HEALTH CHECK
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -37,7 +41,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ✅ GET ALL USERS WITH THEIR SCAN DATA
+// GET ALL USERS WITH SCAN DATA
 app.get('/api/users/all', async (req, res) => {
   try {
     console.log('🔄 Fetching all users with scan data...');
@@ -49,46 +53,35 @@ app.get('/api/users/all', async (req, res) => {
       const userId = userDoc.id;
       const userData = userDoc.data();
       
-      // Get user's shelf items (scanned papayas)
       const shelfSnapshot = await db.collection('users').doc(userId).collection('shelf').get();
-      const shelfCount = shelfSnapshot.size;
-      
-      // Get user's history (scan activities)
       const historySnapshot = await db.collection('users').doc(userId).collection('history').get();
-      const historyCount = historySnapshot.size;
-      
+
       usersData.push({
-        userId: userId,
+        userId,
         email: userData.email || 'No email',
         user_id: userData.user_id || 'No user_id',
         created_at: userData.created_at || 'Unknown',
-        shelfCount: shelfCount,
-        historyCount: historyCount,
-        totalScans: shelfCount + historyCount
+        shelfCount: shelfSnapshot.size,
+        historyCount: historySnapshot.size,
+        totalScans: shelfSnapshot.size + historySnapshot.size
       });
     }
     
-    console.log(`✅ Found ${usersData.length} users`);
     res.json({
       success: true,
       totalUsers: usersData.length,
       users: usersData
     });
-    
+
   } catch (error) {
     console.error('❌ Error fetching users data:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ✅ GET DASHBOARD STATS FROM REAL USER DATA
+// DASHBOARD STATS
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    console.log('🔄 Fetching REAL dashboard data from users collection...');
-    
     const usersSnapshot = await db.collection('users').get();
     let totalScans = 0;
     let totalShelfItems = 0;
@@ -96,244 +89,108 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const userActivities = [];
     const allScans = [];
     
-    // Process each user
     for (const userDoc of usersSnapshot.docs) {
       const userId = userDoc.id;
       const userData = userDoc.data();
-      
-      // Get user's shelf items count
+
       const shelfSnapshot = await db.collection('users').doc(userId).collection('shelf').get();
-      const userShelfCount = shelfSnapshot.size;
-      totalShelfItems += userShelfCount;
-      
-      // Get user's history count
       const historySnapshot = await db.collection('users').doc(userId).collection('history').get();
-      const userHistoryCount = historySnapshot.size;
-      totalHistoryItems += userHistoryCount;
-      
-      // Get shelf items for activities and ripeness data
+
       shelfSnapshot.forEach(doc => {
         const shelfItem = doc.data();
         allScans.push({
-          userId: userId,
+          userId,
           userEmail: userData.email,
           ...shelfItem,
           scanned_at: shelfItem.scannedDate || shelfItem.addedAt || new Date()
         });
-        
-        // Add to recent activities
-        if (userShelfCount > 0) {
-          userActivities.push({
-            user: userData.email || `User ${userId.substring(0, 8)}`,
-            action: `Scanned Papaya - ${shelfItem.ripeness || shelfItem.variety || 'Unknown'}`,
-            time: formatTimeAgo(shelfItem.scannedDate || shelfItem.addedAt),
-            type: 'scan'
-          });
-        }
       });
-      
-      // Add history items to total scans
-      totalScans += userShelfCount + userHistoryCount;
+
+      totalShelfItems += shelfSnapshot.size;
+      totalHistoryItems += historySnapshot.size;
+      totalScans += shelfSnapshot.size + historySnapshot.size;
     }
     
-    const totalUsers = usersSnapshot.size;
-    
-    // Calculate ripeness distribution from REAL shelf data
-    const ripenessDistribution = calculateRipenessDistribution(allScans);
-    
-    // Get recent activities (last 6)
-    const recentActivities = userActivities
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-      .slice(0, 6);
-    
-    // Calculate weekly scans trend
-    const weeklyScans = calculateWeeklyScans(allScans);
-    
     const responseData = {
-      // Real data from database
-      totalUsers: totalUsers,
-      newUsers: Math.max(1, Math.floor(totalUsers * 0.2)), // Estimate new users
-      totalScans: totalScans,
-      papayasOnShelf: totalShelfItems, // Real shelf items count
-      
-      // Real ripeness distribution
-      ripenessDistribution: ripenessDistribution,
-      
-      // Real weekly data
-      weeklyScans: weeklyScans,
-      
-      // Real recent activities
-      recentActivities: recentActivities.length > 0 ? recentActivities : [
-        { user: "No scans yet", action: "Scan a papaya to see data", time: "Waiting" }
-      ],
-      
-      // User statistics
+      totalUsers: usersSnapshot.size,
+      totalScans,
+      papayasOnShelf: totalShelfItems,
+      ripenessDistribution: calculateRipenessDistribution(allScans),
+      weeklyScans: calculateWeeklyScans(allScans),
       userStats: {
-        averageScansPerUser: totalUsers > 0 ? (totalScans / totalUsers).toFixed(1) : 0,
-        activeUsers: userActivities.length,
-        totalShelfItems: totalShelfItems,
-        totalHistoryItems: totalHistoryItems
+        averageScansPerUser: usersSnapshot.size > 0 ? (totalScans / usersSnapshot.size).toFixed(1) : 0,
+        activeUsers: allScans.length,
+        totalShelfItems,
+        totalHistoryItems
       }
     };
-    
-    console.log('✅ REAL Dashboard Data:', {
-      totalUsers: responseData.totalUsers,
-      totalScans: responseData.totalScans,
-      shelfItems: responseData.papayasOnShelf,
-      recentActivities: responseData.recentActivities.length
-    });
-    
+
     res.json(responseData);
-    
+
   } catch (error) {
     console.error('❌ Dashboard error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      message: 'Check Firebase users collection structure'
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ✅ DELETE USER ENDPOINT
+// DELETE USER
 app.delete('/api/users/delete/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    console.log('🗑️ DELETE /api/users/delete/', userId);
 
-    // Check if user exists
     const userDoc = await db.collection('users').doc(userId).get();
-    
     if (!userDoc.exists) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'User not found' 
-      });
+      return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    const userData = userDoc.data();
-    console.log('📋 User to delete:', {
-      userId: userId,
-      email: userData.email,
-      user_id: userData.user_id
-    });
+    // Delete subcollections
+    await deleteSubcollection('shelf', userId);
+    await deleteSubcollection('history', userId);
 
-    // ✅ 1. Delete user's shelf subcollection
-    console.log('🗑️ Deleting shelf subcollection...');
-    const shelfSnapshot = await db.collection('users').doc(userId).collection('shelf').get();
-    const shelfDeletePromises = shelfSnapshot.docs.map(doc => doc.ref.delete());
-    await Promise.all(shelfDeletePromises);
-
-    // ✅ 2. Delete user's history subcollection  
-    console.log('🗑️ Deleting history subcollection...');
-    const historySnapshot = await db.collection('users').doc(userId).collection('history').get();
-    const historyDeletePromises = historySnapshot.docs.map(doc => doc.ref.delete());
-    await Promise.all(historyDeletePromises);
-
-    // ✅ 3. Delete the main user document
-    console.log('🗑️ Deleting main user document...');
+    // Delete main user document
     await db.collection('users').doc(userId).delete();
 
-    // ✅ 4. DELETE USER FROM FIREBASE AUTHENTICATION
-    console.log('🔐 Deleting user from Firebase Authentication...');
+    // Delete from Firebase Auth
     try {
       await auth.deleteUser(userId);
-      console.log('✅ User deleted from Authentication successfully');
-    } catch (authError) {
-      console.log('⚠️ User not found in Authentication (might be OK):', authError.message);
-      // Continue even if user doesn't exist in Auth
+    } catch (e) {
+      console.log("Auth delete skipped:", e.message);
     }
 
-    console.log(`✅ User ${userId} deleted successfully from Firestore and Authentication`);
-    
-    res.json({ 
-      success: true,
-      message: 'User deleted successfully from Firestore and Authentication',
-      deletedUser: {
-        userId: userId,
-        email: userData.email
-      }
-    });
+    res.json({ success: true, message: "User deleted successfully" });
 
   } catch (error) {
-    console.error('❌ Error deleting user:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// HELPER FUNCTIONS
+// Helper functions
+async function deleteSubcollection(name, userId) {
+  const snapshot = await db.collection('users').doc(userId).collection(name).get();
+  const promises = snapshot.docs.map(doc => doc.ref.delete());
+  return Promise.all(promises);
+}
+
 function calculateRipenessDistribution(scans) {
-  const distribution = { unripe: 0, ripe: 0, overripe: 0 };
-  
-  scans.forEach(scan => {
-    const ripeness = (scan.ripeness || '').toLowerCase();
-    if (ripeness.includes('unripe') || ripeness === 'green') {
-      distribution.unripe++;
-    } else if (ripeness.includes('overripe') || ripeness === 'rotten') {
-      distribution.overripe++;
-    } else {
-      distribution.ripe++; // Default to ripe
-    }
+  const d = { unripe: 0, ripe: 0, overripe: 0 };
+  scans.forEach(s => {
+    const r = (s.ripeness || "").toLowerCase();
+    if (r.includes("unripe") || r === "green") d.unripe++;
+    else if (r.includes("overripe") || r === "rotten") d.overripe++;
+    else d.ripe++;
   });
-  
-  // Ensure at least 1 for chart display
-  if (distribution.unripe === 0 && distribution.ripe === 0 && distribution.overripe === 0) {
-    return { unripe: 1, ripe: 1, overripe: 1 };
-  }
-  
-  return distribution;
+  return d;
 }
 
 function calculateWeeklyScans(scans) {
-  if (scans.length === 0) return [2, 5, 8, 12];
-  
-  // Simple weekly distribution (last 4 weeks)
-  const weeklyData = [0, 0, 0, 0];
+  const weeks = [0, 0, 0, 0];
   const now = new Date();
-  
-  scans.forEach(scan => {
-    const scanDate = scan.scannedDate || scan.addedAt || scan.timestamp;
-    if (scanDate) {
-      const date = scanDate.toDate ? scanDate.toDate() : new Date(scanDate);
-      const diffWeeks = Math.floor((now - date) / (7 * 24 * 60 * 60 * 1000));
-      
-      if (diffWeeks < 4) {
-        weeklyData[3 - diffWeeks]++;
-      }
-    }
+  scans.forEach(s => {
+    const t = new Date(s.scanned_at);
+    const diff = Math.floor((now - t) / (1000 * 60 * 60 * 24 * 7));
+    if (diff < 4) weeks[3 - diff]++;
   });
-  
-  return weeklyData.map(count => Math.max(1, count));
-}
-
-function formatTimeAgo(timestamp) {
-  if (!timestamp) return 'Recent';
-  try {
-    const now = new Date();
-    let activityTime;
-    
-    if (timestamp.toDate) {
-      activityTime = timestamp.toDate();
-    } else if (typeof timestamp === 'string') {
-      activityTime = new Date(timestamp);
-    } else if (timestamp.seconds) {
-      activityTime = new Date(timestamp.seconds * 1000);
-    } else {
-      activityTime = new Date(timestamp);
-    }
-    
-    if (isNaN(activityTime.getTime())) return 'Recent';
-    
-    const diffMinutes = Math.floor((now - activityTime) / (1000 * 60));
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes} mins ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hr ago`;
-    return `${Math.floor(diffMinutes / 1440)} days ago`;
-  } catch (error) {
-    return 'Recent';
-  }
+  return weeks;
 }
 
 // Start server
@@ -341,9 +198,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 PAPAYAFRESH API Server Running!');
   console.log('📍 Port:', PORT);
-  console.log('🌐 Root URL: http://localhost:' + PORT + '/');
-  console.log('📊 Dashboard: http://localhost:' + PORT + '/api/dashboard/stats');
-  console.log('👥 All Users: http://localhost:' + PORT + '/api/users/all');
 });
-
-module.exports = app;
