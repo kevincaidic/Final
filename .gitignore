@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.local
+serviceAccountKey.json
+serviceAccountKey*.json
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+dist/
+build/
+.vscode/
+.idea/
+*.tmp
+*.temp
+package-lock.json
